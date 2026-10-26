@@ -1,0 +1,6 @@
+imagen,PSNR,SSIM
+ruidosa,25.9959,0.5663
+median,30.7041,0.7984
+gaussian,30.3983,0.8531
+bilateral,31.9349,0.8396
+nlm,33.0586,0.874
