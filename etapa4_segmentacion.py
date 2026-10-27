@@ -21,13 +21,14 @@ INTENSITY_IDX = 0  # índice de la feature de intensidad dentro del array de fea
 
 
 def simple_features(img):
-    """Features provisorias (H, W, 3): intensidad preprocesada, desvío local y gradiente Sobel."""
+    """Features provisorias (H, W, 2): intensidad preprocesada y media local."""
     # TODO: reemplazar por compute_features de etapa2_mapas y SELECTED_FEATURES de etapa3_seleccion
+    # Solo features de REGIÓN (homogéneas dentro de un tejido). Las de BORDE (Sobel, desvío local) valen mucho
+    # en cualquier límite (cráneo/fondo, contorno del tumor) y poco en el interior del tumor: k-means termina
+    # agrupando bordes en vez de tejidos y elige el anillo del cráneo como "tumor".
     pre = preprocess(img)                                          # z-score dentro del cerebro, fondo en 0
-    mean = ndi.uniform_filter(pre, size=7)                         # media local en ventana 7x7
-    std = np.sqrt(np.clip(ndi.uniform_filter(pre**2, 7) - mean**2, 0, None))  # desvío local: sqrt(E[x²] - E[x]²)
-    grad = np.hypot(ndi.sobel(pre, axis=0), ndi.sobel(pre, axis=1))  # módulo del gradiente (bordes)
-    return np.stack([pre, std, grad], axis=-1)
+    mean = ndi.uniform_filter(pre, size=7)                         # media local 7x7: intensidad suavizada
+    return np.stack([pre, mean], axis=-1)
 
 
 def segment_baseline(img):
