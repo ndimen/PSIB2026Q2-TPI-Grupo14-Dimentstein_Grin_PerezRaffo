@@ -10,24 +10,33 @@ matplotlib.use("Agg")  # backend sin ventana: solo guardamos figuras
 import matplotlib.pyplot as plt
 from scipy import ndimage as ndi
 from skimage.filters import threshold_otsu
-from skimage.restoration import denoise_nl_means, estimate_sigma
+from skimage.morphology import disk  # elemento estructurante circular
+from skimage.restoration import denoise_nl_means, estimate_sigma  # estimate_sigma requiere PyWavelets
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 
 from cargadatos import load_flair  # TODO: renombrar a etapa0_datos cuando Nico unifique el nombre
 
 BEST_METHOD = "nlm"   # filtro elegido para preprocess(); se confirma con la tabla del main
-MASK_FACTOR = 0.3     # fracción del umbral de Otsu usada para separar cerebro de fondo (ajustable)
+
+# --- Parámetros de la máscara (validar mirando TCGA_HT_A61A c58 y TCGA_HT_7881 c39) ---
+MASK_FACTOR = 0.5     # fracción del umbral de Otsu. Antes 0.3: tan bajo que el hueso y el cuero cabelludo
+                      # entraban como "tejido". Con 0.5 el cráneo oscuro queda fuera sin perder cerebro gris.
+ERODE_R = 10          # radio (px) de erosión/dilatación. Debe superar la mitad del puente más grueso entre
+                      # cerebro y cuero cabelludo (~7-10 px en cortes de 256x256). Antes 7.
 
 
 def brain_mask(img):
-    """Devuelve la máscara booleana del cerebro (umbral de Otsu, mayor componente conexa, sin huecos)."""
-    m = img > threshold_otsu(img) * MASK_FACTOR   # umbral bajo: incluye tejido oscuro pero excluye el fondo
-    m = ndi.binary_opening(m, iterations=2)       # la apertura saca puntos sueltos y bordes ruidosos
-    m = ndi.binary_fill_holes(m)                  # rellena huecos internos (LCR anulado, ventrículos)
-    lab, n = ndi.label(m)                         # componentes conexas
-    if n == 0:                                    # imagen vacía: devolvemos la máscara tal cual
+    """Máscara booleana del cerebro: umbral -> erosión -> mayor componente -> rellenar -> dilatar."""
+    m = img > threshold_otsu(img) * MASK_FACTOR            # separa tejido de fondo
+    se = disk(ERODE_R)                                     # mismo elemento para erosionar y dilatar (= apertura)
+    core = ndi.binary_erosion(m, structure=se)             # corta los puentes finos entre cerebro y cuero cabelludo
+    lab, n = ndi.label(core)                               # componentes conexas del núcleo
+    if n == 0:                                             # nada sobrevivió: devolvemos el umbral tal cual
         return m
-    return lab == (np.argmax(np.bincount(lab.ravel())[1:]) + 1)  # nos quedamos con la más grande
+    sizes = np.bincount(lab.ravel())[1:]                   # tamaño de cada componente (sin el fondo 0)
+    core = lab == (np.argmax(sizes) + 1)                   # mayor componente = cerebro; el cuero cabelludo queda afuera
+    core = ndi.binary_fill_holes(core)                     # rellenamos DESPUÉS de elegir (ventrículos, LCR oscuro en FLAIR)
+    return ndi.binary_dilation(core, structure=se)         # recuperamos el borde; el disco da contorno suave (sin "& m", que lo dentaba)
 
 
 def normalize(img, mask):
@@ -82,7 +91,7 @@ if __name__ == "__main__":
     img = load_flair(slices[len(slices) // 2])
     print("Corte usado:", slices[len(slices) // 2])
 
-    # --- 0) Chequeo de la máscara: valores del fondo vs cerebro para validar el umbral ---
+    # --- 0) Chequeo de la máscara: valores del fondo vs cerebro para validar los parámetros ---
     mask = brain_mask(img)
     print(f"Rango imagen: min={img.min():.2f}, max={img.max():.2f}, umbral usado={threshold_otsu(img) * MASK_FACTOR:.2f}")
     print(f"Fondo: media={img[~mask].mean():.2f} | Cerebro: media={img[mask].mean():.2f} | "
