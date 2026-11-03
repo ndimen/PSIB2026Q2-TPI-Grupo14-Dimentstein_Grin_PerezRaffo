@@ -10,7 +10,7 @@ from sklearn.metrics import roc_auc_score
 
 # Etapa 0 (Nico): índice de datos y carga; etapa 1: preprocesamiento; etapa 2 (Rama): mapas
 from etapa0_datos import build_index, load_flair, load_mask
-from etapa1_preprocesamiento import preprocess
+from etapa1_preprocesamiento import brain_mask, preprocess
 from etapa2_mapas import FEATURE_NAMES, compute_features
 
 # Semilla fija para que todo sea reproducible
@@ -23,6 +23,10 @@ SLICES_PER_PATIENT = 5   # cortes con tumor por paciente (limita el tiempo de c�
 N_PIX = 500              # máximo de píxeles tumor y de píxeles sanos por corte
 MIN_TUMOR = 50           # un corte "tiene tumor" si su máscara tiene al menos estos píxeles
 R_MAX = 0.9              # umbral de |correlación| para descartar features redundantes
+# AUC mínimo para quedarse con una feature (0.7 = discriminación "aceptable"). Sin este corte, select_features
+# elegía todas las no redundantes aunque tuvieran AUC de azar. Con "sano" = brain_mask, las de borde/textura
+# quedan debajo: valen mucho en el contorno del tumor pero poco en su interior.
+AUC_MIN = 0.7
 RANKING_CSV = "results/etapa3_ranking.csv"
 
 
@@ -50,7 +54,7 @@ def sample_pixels(slices, n_pix=N_PIX, seed=SEED):
         raw = load_flair(img_path)  # FLAIR crudo (el fondo vale 0)
         mask = load_mask(mask_path) > 0  # máscara del tumor (bool)
         feats = compute_features(preprocess(raw)).reshape(-1, len(FEATURE_NAMES))  # (H*W, n_features)
-        brain = raw > 0  # "sano" = cerebro sin tumor (el fondo negro inflaría el AUC)
+        brain = brain_mask(raw)  # "sano" = cerebro sin tumor, con la misma máscara que las etapas 4 y 5
         for label, region in ((1, mask), (0, brain & ~mask)):
             candidates = np.flatnonzero(region.ravel())  # índices planos de la región
             idx = rng.choice(candidates, size=min(n_pix, len(candidates)), replace=False)
@@ -99,7 +103,7 @@ if __name__ == "__main__":
     # 2) AUC por feature, matriz de correlación y selección
     auc = auc_per_feature(X, y)
     corr = pd.DataFrame(np.corrcoef(X, rowvar=False), index=FEATURE_NAMES, columns=FEATURE_NAMES)
-    selected = select_features(auc, corr)
+    selected = select_features(auc[auc >= AUC_MIN], corr)
 
     # 3) Ranking en CSV (con la marca de las features seleccionadas)
     ranking = auc.rename_axis("feature").reset_index()
