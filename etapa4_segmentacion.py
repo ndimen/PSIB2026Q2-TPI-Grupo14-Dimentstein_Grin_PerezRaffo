@@ -9,6 +9,7 @@ import numpy as np
 from scipy import ndimage as ndi
 from skimage.filters import threshold_otsu
 from skimage.morphology import disk
+from skimage.segmentation import morphological_chan_vese
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
@@ -63,6 +64,28 @@ def postprocess(mask, radius=2):
     return lab == np.argmax(np.bincount(lab.ravel())[1:]) + 1  # nos quedamos con la más grande
 
 
+def refine_chan_vese(img, mask, brain, margin=15, n_iter=50, smoothing=1):
+    """Refina el borde de mask con Chan-Vese morfológico en una ventana alrededor de la máscara inicial."""
+    if not mask.any():                                  # nada que refinar
+        return mask
+    # Región de trabajo: la máscara dilatada 'margin' px, dentro del cerebro. Chan-Vese es un modelo de
+    # 2 fases (adentro/afuera) que compara las intensidades medias: en toda la imagen separaría cualquier
+    # tejido brillante (sustancia gris) del resto. En una ventana local, "afuera" es el tejido que rodea al tumor.
+    roi = ndi.binary_dilation(mask, structure=disk(margin)) & brain
+    sl = ndi.find_objects(roi.astype(np.uint8))[0]      # rectángulo que contiene la región (para no procesar todo)
+    sub = img[sl].astype(float)
+    # Arranca desde la máscara de k-means y mueve el borde minimizando la energía de Chan-Vese:
+    # sum (I - c_adentro)² + sum (I - c_afuera)², más un término de suavidad del contorno
+    ls = morphological_chan_vese(sub, n_iter, init_level_set=mask[sl], smoothing=smoothing).astype(bool)
+    if sub[ls].mean() < sub[~ls].mean():                # por las dudas: la fase "tumor" es la más brillante
+        ls = ~ls
+    out = np.zeros_like(mask, dtype=bool)
+    out[sl] = ls & roi[sl]                              # no se permite crecer fuera de la ventana ni del cerebro
+    out = ndi.binary_fill_holes(out)
+    lab, n = ndi.label(out)                             # componente más grande, como en postprocess
+    return lab == np.argmax(np.bincount(lab.ravel())[1:]) + 1 if n else out
+
+
 if __name__ == "__main__":
     out = Path("results")
     out.mkdir(exist_ok=True)
@@ -75,15 +98,19 @@ if __name__ == "__main__":
 
     # Aplicamos el mismo posprocesamiento a ambos para que la diferencia venga solo de las features
     base = postprocess(segment_baseline(img))
-    prop = postprocess(segment(simple_features(img)))
+    feats = simple_features(img)
+    prop = postprocess(segment(feats))
+    # Chan-Vese sobre la intensidad preprocesada (columna 0), arrancando desde la máscara de k-means
+    cv = refine_chan_vese(feats[..., 0], prop, brain_mask(img))
 
     # Dice rápido solo para el título; la métrica oficial es evaluate() de la etapa 5
     dice = lambda p: 2 * (p & gt).sum() / (p.sum() + gt.sum() + 1e-8)
 
-    fig, ax = plt.subplots(1, 4, figsize=(16, 4))
+    fig, ax = plt.subplots(1, 5, figsize=(20, 4))
     paneles = [(None, "FLAIR"), (gt, "Ground truth"),
                (base, f"Línea base (Otsu) | Dice {dice(base):.2f}"),
-               (prop, f"Propuesto (k-means) | Dice {dice(prop):.2f}")]
+               (prop, f"Propuesto (k-means) | Dice {dice(prop):.2f}"),
+               (cv, f"k-means + Chan-Vese | Dice {dice(cv):.2f}")]
     for a, (m, titulo) in zip(ax, paneles):
         a.imshow(img, cmap="gray")
         if m is not None:
@@ -93,5 +120,6 @@ if __name__ == "__main__":
     fig.suptitle(f"{fila['patient']} corte {fila['slice']}")
     plt.savefig(out / "etapa4_segmentacion.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print(f"{fila['patient']} corte {fila['slice']} | Dice base: {dice(base):.3f} | Dice propuesto: {dice(prop):.3f}")
+    print(f"{fila['patient']} corte {fila['slice']} | Dice base: {dice(base):.3f} | "
+          f"Dice propuesto: {dice(prop):.3f} | Dice + Chan-Vese: {dice(cv):.3f}")
     print(f"Figura guardada en {out / 'etapa4_segmentacion.png'}")
