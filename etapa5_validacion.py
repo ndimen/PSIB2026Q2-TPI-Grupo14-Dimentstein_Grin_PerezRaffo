@@ -13,7 +13,7 @@ from etapa0_datos import build_index, load_flair, load_mask, DATA_DIR
 from etapa1_preprocesamiento import brain_mask, preprocess
 from etapa2_mapas import compute_features, FEATURE_NAMES
 from etapa3_seleccion import SELECTED_FEATURES
-from etapa4_segmentacion import segment_baseline, segment, postprocess
+from etapa4_segmentacion import segment_baseline, segment, postprocess, refine_chan_vese
 
 SEED = 42
 METRICAS = ["Dice", "IoU", "sensibilidad", "especificidad"]
@@ -75,9 +75,13 @@ def procesar_corte(img_path, mask_path, idx_sel, familias):
     # Línea base: Otsu sobre la imagen cruda + mismo posprocesamiento que el propuesto
     for k, v in evaluate(postprocess(segment_baseline(raw)), gt).items():
         fila[f"baseline_{k}"] = v
-    # Método propuesto
-    for k, v in evaluate(proponer(idx_sel), gt).items():
+        # Método propuesto
+    prop = proponer(idx_sel)
+    for k, v in evaluate(prop, gt).items():
         fila[f"propuesto_{k}"] = v
+    # Propuesto + refinamiento del borde con Chan-Vese (etapa 4), sobre la misma intensidad que elige el cluster
+    for k, v in evaluate(refine_chan_vese(ref, prop, brain), gt).items():
+        fila[f"propuesto_cv_{k}"] = v
     # Ablation: sacar una familia completa de las features elegidas
     for fam, ids in familias.items():
         resto = [i for i in idx_sel if i not in ids]
@@ -111,7 +115,7 @@ def tabla_resumen(df):
     """Media y desvío de cada métrica para línea base y propuesto."""
     return pd.DataFrame([
         {"metodo": m, "metrica": k, "media": df[f"{m}_{k}"].mean(), "desvio": df[f"{m}_{k}"].std()}
-        for m in ["baseline", "propuesto"] for k in METRICAS
+        for m in ["baseline", "propuesto", "propuesto_cv"] for k in METRICAS
     ])
 
 
@@ -133,15 +137,15 @@ def dice_por_clinico(df):
     out = {}
     for col in ["tumor_location", "neoplasm_histologic_grade"]:
         if col in df.columns:
-            out[col] = df.groupby(col)[["baseline_Dice", "propuesto_Dice"]].agg(["mean", "count"]).round(3)
+            out[col] = df.groupby(col)[["baseline_Dice", "propuesto_Dice", "propuesto_cv_Dice"]].agg(["mean", "count"]).round(3)
     return out
 
 
 def boxplot_dice(df, ruta):
     """Boxplot del Dice por corte: línea base vs propuesto."""
-    fig, ax = plt.subplots(figsize=(4, 5))
-    ax.boxplot([df["baseline_Dice"], df["propuesto_Dice"]])
-    ax.set_xticklabels(["Baseline (Otsu)", "Propuesto (k-means)"])
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.boxplot([df["baseline_Dice"], df["propuesto_Dice"], df["propuesto_cv_Dice"]])
+    ax.set_xticklabels(["Otsu", "k-means", "k-means + CV"])
     ax.set_ylabel("Dice")
     ax.set_title("Dice por corte con tumor")
     fig.tight_layout()
