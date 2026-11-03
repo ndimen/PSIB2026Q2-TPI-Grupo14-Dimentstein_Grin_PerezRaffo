@@ -11,11 +11,17 @@ from scipy.stats import entropy, kurtosis, skew
 from skimage.measure import regionprops
 
 from etapa0_datos import load_flair, load_mask, build_index
-from etapa4_segmentacion import simple_features, segment, postprocess  # TODO: usar compute_features de etapa2
+from etapa1_preprocesamiento import brain_mask, preprocess
+from etapa2_mapas import compute_features, FEATURE_NAMES
+from etapa3_seleccion import SELECTED_FEATURES
+from etapa4_segmentacion import segment, postprocess, refine_chan_vese
 
 SEED = 42
 N_SLICES = 200   # cortes con tumor a analizar (None = todos; cada corte tarda ~1 s por el preprocesamiento)
 N_BINS = 32      # bins del histograma para la entropía de intensidad
+
+IDX_SEL = [FEATURE_NAMES.index(n) for n in SELECTED_FEATURES]  # columnas de las features elegidas (etapa 3)
+REF = FEATURE_NAMES.index("intensidad")                         # mapa con el que se elige el cluster tumor
 
 DESCRIPTORS = ["area", "perimetro", "excentricidad", "solidez", "eje_mayor", "eje_menor",
                "media", "desvio", "asimetria", "curtosis", "entropia"]
@@ -54,9 +60,13 @@ if __name__ == "__main__":
 
     rows = []
     for _, f in con_tumor.iterrows():
-        feats = simple_features(load_flair(f["img_path"]))
-        pre = feats[..., 0]                              # intensidad z-score: comparable entre pacientes
-        pred = postprocess(segment(feats))
+        raw = load_flair(f["img_path"])
+        brain = brain_mask(raw)
+        pre = preprocess(raw)                            # intensidad z-score: comparable entre pacientes
+        feats = compute_features(pre)
+        ref = feats[..., REF]
+        # Mismo método final que reporta la etapa 5: k-means sobre las features elegidas + Chan-Vese
+        pred = refine_chan_vese(ref, postprocess(segment(feats[..., IDX_SEL], brain=brain, ref=ref)), brain)
         gt = load_mask(f["mask_path"]).astype(bool)
         d_gt, d_pred = compute_descriptors(pre, gt), compute_descriptors(pre, pred)
         # Una fila por corte, con sufijos _gt y _pred para cada descriptor
