@@ -1,5 +1,5 @@
 ,baseline_Dice,baseline_Dice,propuesto_Dice,propuesto_Dice
 ,mean,count,mean,count
 neoplasm_histologic_grade,,,,
-1.0,0.583,9,0.436,9
-2.0,0.605,11,0.58,11
+1.0,0.618,42,0.563,42
+2.0,0.451,58,0.474,58

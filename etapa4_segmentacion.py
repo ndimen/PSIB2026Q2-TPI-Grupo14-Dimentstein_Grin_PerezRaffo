@@ -12,8 +12,8 @@ from skimage.morphology import disk
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-from cargadatos import load_flair, load_mask, build_index  # TODO: renombrar a etapa0_datos cuando se unifique
-from procesamiento import brain_mask, preprocess          # TODO: renombrar a etapa1_preprocesamiento
+from etapa0_datos import load_flair, load_mask, build_index  
+from etapa1_preprocesamiento import brain_mask, preprocess          
 
 SEED = 42          # semilla fija para k-means
 N_CLUSTERS = 3     # 3 grupos: tejido oscuro, parénquima normal e hiperintenso (tumor/edema)
@@ -37,17 +37,17 @@ def segment_baseline(img):
     return (img > threshold_otsu(img[brain])) & brain
 
 
-def segment(features, brain=None, n_clusters=N_CLUSTERS):
-    """K-means sobre las features dentro del cerebro; el tumor es el cluster de mayor intensidad media."""
+def segment(features, brain=None, n_clusters=N_CLUSTERS, ref=None):
+    """K-means sobre las features dentro del cerebro; el tumor es el cluster de mayor intensidad media.
+    ref: mapa 2D (H, W) con el que se elige el cluster tumor; si es None se usa la columna INTENSITY_IDX."""
     if brain is None:
-        # preprocess deja el fondo exactamente en 0, así que el cerebro es donde la intensidad no es 0
         brain = features[..., INTENSITY_IDX] != 0
-    X = StandardScaler().fit_transform(features[brain])     # (n_píxeles, n_features) con cada feature en la misma escala
+    X = StandardScaler().fit_transform(features[brain])
     labels = KMeans(n_clusters, n_init=10, random_state=SEED).fit_predict(X)
-    # Media de la intensidad por cluster sin loops: suma por cluster / cantidad por cluster
-    means = np.bincount(labels, weights=X[:, INTENSITY_IDX]) / np.bincount(labels)
+    vals = X[:, INTENSITY_IDX] if ref is None else ref[brain]
+    means = np.bincount(labels, weights=vals) / np.bincount(labels)
     mask = np.zeros(brain.shape, dtype=bool)
-    mask[brain] = labels == np.argmax(means)                 # volvemos a la grilla 2D solo con el cluster tumor
+    mask[brain] = labels == np.argmax(means)
     return mask
 
 
