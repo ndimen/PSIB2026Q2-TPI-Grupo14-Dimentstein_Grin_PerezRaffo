@@ -4,4 +4,8 @@ matplotlib
 scipy
 scikit-image
 scikit-learn
-pywt
+opencv-python
+tifffile
+PyWavelets
+pyside6
+pyqtgraph

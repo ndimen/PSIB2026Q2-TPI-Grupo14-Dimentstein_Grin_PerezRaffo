@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.stats import entropy, kurtosis, skew
 from skimage.measure import regionprops
 
-from cargadatos import load_flair, load_mask, build_index  # TODO: renombrar a etapa0_datos cuando se unifique
+from etapa0_datos import load_flair, load_mask, build_index
 from etapa4_segmentacion import simple_features, segment, postprocess  # TODO: usar compute_features de etapa2
 
 SEED = 42
