@@ -14,7 +14,7 @@ from skimage.morphology import disk  # elemento estructurante circular
 from skimage.restoration import denoise_nl_means, estimate_sigma  # estimate_sigma requiere PyWavelets
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 
-from cargadatos import load_flair  # TODO: renombrar a etapa0_datos cuando Nico unifique el nombre
+from etapa0_datos import load_flair  # TODO: renombrar a etapa0_datos cuando Nico unifique el nombre
 
 BEST_METHOD = "nlm"   # filtro elegido para preprocess(); se confirma con la tabla del main
 
@@ -25,8 +25,14 @@ ERODE_R = 10          # radio (px) de erosión/dilatación. Debe superar la mita
                       # cerebro y cuero cabelludo (~7-10 px en cortes de 256x256). Antes 7.
 
 
+# Fracción mínima del tamaño de la mayor componente para conservar una componente del núcleo.
+# 0.05 (5 %): el cerebelo o un lóbulo temporal separado por la erosión suele medir bastante más que eso,
+# mientras que los restos chicos de cuero cabelludo o ruido que sobreviven a la erosión miden mucho menos.
+MIN_COMP_FRAC = 0.05
+
+
 def brain_mask(img):
-    """Máscara booleana del cerebro: umbral -> erosión -> mayor componente -> rellenar -> dilatar."""
+    """Máscara booleana del cerebro: umbral -> erosión -> componentes grandes -> rellenar -> dilatar."""
     m = img > threshold_otsu(img) * MASK_FACTOR            # separa tejido de fondo
     se = disk(ERODE_R)                                     # mismo elemento para erosionar y dilatar (= apertura)
     core = ndi.binary_erosion(m, structure=se)             # corta los puentes finos entre cerebro y cuero cabelludo
@@ -34,9 +40,10 @@ def brain_mask(img):
     if n == 0:                                             # nada sobrevivió: devolvemos el umbral tal cual
         return m
     sizes = np.bincount(lab.ravel())[1:]                   # tamaño de cada componente (sin el fondo 0)
-    core = lab == (np.argmax(sizes) + 1)                   # mayor componente = cerebro; el cuero cabelludo queda afuera
+    keep = np.flatnonzero(sizes >= MIN_COMP_FRAC * sizes.max()) + 1  # etiquetas a conservar (+1 porque saltamos el fondo)
+    core = np.isin(lab, keep)                              # unión de las componentes grandes (cerebro, cerebelo, lóbulos separados)
     core = ndi.binary_fill_holes(core)                     # rellenamos DESPUÉS de elegir (ventrículos, LCR oscuro en FLAIR)
-    return ndi.binary_dilation(core, structure=se)         # recuperamos el borde; el disco da contorno suave (sin "& m", que lo dentaba)
+    return ndi.binary_dilation(core, structure=se)         # recuperamos el borde; el disco da contorno suave      # recuperamos el borde; el disco da contorno suave (sin "& m", que lo dentaba)
 
 
 def normalize(img, mask):
