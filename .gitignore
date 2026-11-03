@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# Datos (cada uno los tiene en su máquina)
+data/
+
+# Sistema operativo / editor
+.DS_Store
+.vscode/
