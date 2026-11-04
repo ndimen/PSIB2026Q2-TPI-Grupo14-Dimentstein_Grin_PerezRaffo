@@ -168,7 +168,7 @@
             <item>
              <widget class="QPushButton" name="btnSegmentar">
               <property name="text">
-               <string>Segmentar (Otsu y k-means)</string>
+               <string>Segmentar (Otsu, k-means y Chan-Vese)</string>
               </property>
              </widget>
             </item>
@@ -286,7 +286,12 @@
             </column>
             <column>
              <property name="text">
-              <string>Propuesto (k-means)</string>
+              <string>k-means</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>k-means + Chan-Vese</string>
              </property>
             </column>
            </widget>

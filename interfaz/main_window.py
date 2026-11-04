@@ -23,15 +23,15 @@ from etapa0_datos import DATA_DIR, build_index, load_flair, load_mask
 from etapa1_preprocesamiento import brain_mask, preprocess
 from etapa2_mapas import FEATURE_NAMES, compute_features
 from etapa3_seleccion import SELECTED_FEATURES
-from etapa4_segmentacion import postprocess, segment, segment_baseline
+from etapa4_segmentacion import postprocess, refine_chan_vese, segment, segment_baseline
 from etapa5_validacion import METRICAS, evaluate
 from etapa6_descriptores import DESCRIPTORS, compute_descriptors
-from ui_ventana import Ui_MainWindow
+from interfaz.ui_ventana import Ui_MainWindow
 
 pg.setConfigOptions(imageAxisOrder="row-major", antialias=True)  # imágenes como (fila, columna), igual que numpy
 
-# Colores de los contornos: rojo = máscara real, verde = método, amarillo = línea base
-ROJO, VERDE, AMARILLO = (255, 60, 60), (60, 220, 60), (255, 210, 0)
+# Colores de los contornos: rojo = máscara real, amarillo = Otsu, verde = k-means, celeste = k-means + Chan-Vese
+ROJO, VERDE, AMARILLO, CELESTE = (255, 60, 60), (60, 220, 60), (255, 210, 0), (0, 200, 255)
 IDX_SEL = [FEATURE_NAMES.index(n) for n in SELECTED_FEATURES]  # columnas que usa el método propuesto
 IDX_INT = FEATURE_NAMES.index("intensidad")                    # mapa con el que se elige el cluster tumor
 
@@ -97,7 +97,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def limpiar_estado(self):
         """Borra todo lo calculado (se llama al cargar un corte nuevo)."""
         self.raw = self.gt = self.pre = self.brain = self.feats = None
-        self.base = self.prop = self.metricas = self.descriptores = None
+        self.base = self.prop = self.cv = self.metricas = self.descriptores = None
 
     def actualizar_botones(self):
         """Habilita cada paso solo si el anterior ya se hizo (respeta el orden del pipeline)."""
@@ -232,40 +232,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     # ---------- 4. Segmentación ----------
     def segmentar(self):
-        """Línea base (Otsu) y método propuesto (k-means sobre las features elegidas), igual que en la etapa 5."""
+        """Línea base (Otsu), k-means sobre las features elegidas y su refinamiento con Chan-Vese (como en la etapa 5)."""
         self.ocupado(True)
+        ref = self.feats[..., IDX_INT]                       # intensidad: elige el cluster tumor y guía a Chan-Vese
         self.base = postprocess(segment_baseline(self.raw))
-        self.prop = postprocess(segment(self.feats[..., IDX_SEL], brain=self.brain, ref=self.feats[..., IDX_INT]))
+        self.prop = postprocess(segment(self.feats[..., IDX_SEL], brain=self.brain, ref=ref))
+        self.cv = refine_chan_vese(ref, self.prop, self.brain)
         self.ocupado(False)
         self.dibujar(self.vistaSegmentacion, [
             ("Máscara real (GT)", self.raw, None, [(self.gt, ROJO)]),
             ("Línea base (Otsu)", self.raw, None, [(self.gt, ROJO), (self.base, AMARILLO)]),
-            ("Propuesto (k-means)", self.raw, None, [(self.gt, ROJO), (self.prop, VERDE)]),
+            ("k-means", self.raw, None, [(self.gt, ROJO), (self.prop, VERDE)]),
+            ("k-means + Chan-Vese", self.raw, None, [(self.gt, ROJO), (self.cv, CELESTE)]),
         ])
         self.tabsGraficos.setCurrentWidget(self.tabSegm)
         self.barraProgreso.setValue(80)
-        self.log(f"Segmentado: Otsu = {self.base.sum()} px, k-means = {self.prop.sum()} px.")
+        self.log(f"Segmentado: Otsu = {self.base.sum()} px, k-means = {self.prop.sum()} px, "
+                 f"k-means + Chan-Vese = {self.cv.sum()} px.")
         self.actualizar_botones()
 
     # ---------- 5. Resultados ----------
     def calcular_metricas(self):
         """Dice, IoU, sensibilidad y especificidad (etapa 5) y descriptores del tumor (etapa 6)."""
-        self.metricas = {m: evaluate(p, self.gt) for m, p in (("Otsu", self.base), ("k-means", self.prop))}
+        metodos = (("Otsu", self.base), ("k-means", self.prop), ("k-means + Chan-Vese", self.cv))
+        self.metricas = {m: evaluate(p, self.gt) for m, p in metodos}
+        # La máscara predicha es la del método final (k-means + Chan-Vese), igual que en la etapa 6
         self.descriptores = {"GT": compute_descriptors(self.pre, self.gt),
-                             "Predicha": compute_descriptors(self.pre, self.prop)}
-        self.llenar_tabla(self.tablaMetricas, METRICAS, self.metricas["Otsu"], self.metricas["k-means"])
+                             "Predicha": compute_descriptors(self.pre, self.cv)}
+        self.llenar_tabla(self.tablaMetricas, METRICAS, *self.metricas.values())
         self.llenar_tabla(self.tablaDescriptores, DESCRIPTORS, self.descriptores["GT"], self.descriptores["Predicha"])
         self.tabsGraficos.setCurrentWidget(self.tabMetricas)
         self.barraProgreso.setValue(100)
-        self.log(f"Dice: Otsu = {self.metricas['Otsu']['Dice']:.3f} | k-means = {self.metricas['k-means']['Dice']:.3f}")
+        self.log("Dice: " + " | ".join(f"{m} = {d['Dice']:.3f}" for m, d in self.metricas.items()))
         self.actualizar_botones()
 
     @staticmethod
-    def llenar_tabla(tabla, filas, col1, col2):
-        """Escribe una fila por nombre con los valores de los dos diccionarios (3 decimales)."""
+    def llenar_tabla(tabla, filas, *columnas):
+        """Escribe una fila por nombre con los valores de cada diccionario (una columna por método, 3 decimales)."""
         tabla.setRowCount(len(filas))
         for i, nombre in enumerate(filas):
-            for j, texto in enumerate((nombre, f"{col1[nombre]:.3f}", f"{col2[nombre]:.3f}")):
+            for j, texto in enumerate((nombre, *(f"{c[nombre]:.3f}" for c in columnas))):
                 tabla.setItem(i, j, QTableWidgetItem(texto))
 
     def exportar_csv(self):

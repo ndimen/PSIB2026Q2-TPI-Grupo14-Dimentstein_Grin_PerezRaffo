@@ -1,0 +1,12 @@
+,pearson,spearman
+area,0.572,0.536
+perimetro,0.21,0.39
+excentricidad,0.512,0.46
+solidez,0.238,0.254
+eje_mayor,0.196,0.307
+eje_menor,0.402,0.575
+media,0.292,0.307
+desvio,0.184,0.347
+asimetria,0.31,0.429
+curtosis,0.045,0.248
+entropia,0.14,0.305
