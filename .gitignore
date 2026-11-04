@@ -8,8 +8,6 @@ __pycache__/
 venv/
 env/
 
-# Datos (cada integrante los tiene en su máquina; ver README)
-data/
 
 # Sistema operativo
 .DS_Store
