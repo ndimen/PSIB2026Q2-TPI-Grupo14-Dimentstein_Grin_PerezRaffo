@@ -1,0 +1,4 @@
+tercil,area_min,area_max,n,dice_otsu,dice_kmeans,dice_kmeans_cv
+chico,37,1170,34,0.224,0.302,0.301
+medio,1189,2583,33,0.578,0.692,0.716
+grande,2703,7874,33,0.77,0.785,0.798

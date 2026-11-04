@@ -1,10 +1,18 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 
-# Datos (cada uno los tiene en su máquina)
-data/
+# Entornos virtuales
+.venv/
+venv/
+env/
 
-# Sistema operativo / editor
+
+# Sistema operativo
 .DS_Store
+Thumbs.db
+
+# Editores
 .vscode/
+.idea/

@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ 
+
+ <widget class="QMainWindow" name="MainWindow">
+  
+
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1300</width>
+    <height>800</height>
+   </rect>
+  </property>
+  
+
+  <property name="windowTitle">
+   <string>Segmentación de tumores en MRI FLAIR</string>
+  </property>
+  
+
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="layoutCentral">
+    
+
+    <item>
+     <layout class="QHBoxLayout" name="layoutSuperior">
+      
+
+      <item>
+       <widget class="QWidget" name="panelControles" native="true">
+        <property name="maximumSize">
+         <size>
+          <width>320</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        
+
+        <layout class="QVBoxLayout" name="layoutPanel">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         
+
+         <item>
+          <widget class="QGroupBox" name="grupoCarga">
+           <property name="title">
+            <string>1. Carga de datos</string>
+           </property>
+           <layout class="QFormLayout" name="layout_grupoCarga">
+            <item row="0" column="0" colspan="2">
+             <widget class="QPushButton" name="btnAbrir">
+              <property name="text">
+               <string>Abrir corte (.tif)...</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="labelArchivo">
+              <property name="text">
+               <string>Archivo</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="lblArchivo">
+              <property name="text">
+               <string>(ninguno)</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="labelPaciente">
+              <property name="text">
+               <string>Paciente</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QComboBox" name="comboPaciente"/>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="labelCorte">
+              <property name="text">
+               <string>Corte</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QComboBox" name="comboCorte"/>
+            </item>
+            <item row="4" column="0" colspan="2">
+             <widget class="QCheckBox" name="chkSoloTumor">
+              <property name="text">
+               <string>Solo cortes con tumor</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grupoPre">
+           <property name="title">
+            <string>2. Preprocesamiento</string>
+           </property>
+           <layout class="QVBoxLayout" name="layout_grupoPre">
+            <item>
+             <widget class="QPushButton" name="btnPreprocesar">
+              <property name="text">
+               <string>Preprocesar</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grupoMapas">
+           <property name="title">
+            <string>3. Mapas de características</string>
+           </property>
+           <layout class="QVBoxLayout" name="layout_grupoMapas">
+            <item>
+             <widget class="QPushButton" name="btnMapas">
+              <property name="text">
+               <string>Calcular mapas</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelMapa">
+              <property name="text">
+               <string>Mapa a visualizar</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboMapa"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grupoSegm">
+           <property name="title">
+            <string>4. Segmentación</string>
+           </property>
+           <layout class="QVBoxLayout" name="layout_grupoSegm">
+            <item>
+             <widget class="QPushButton" name="btnSegmentar">
+              <property name="text">
+               <string>Segmentar (Otsu, k-means y Chan-Vese)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grupoResultados">
+           <property name="title">
+            <string>5. Resultados</string>
+           </property>
+           <layout class="QVBoxLayout" name="layout_grupoResultados">
+            <item>
+             <widget class="QPushButton" name="btnMetricas">
+              <property name="text">
+               <string>Calcular métricas</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnExportar">
+              <property name="text">
+               <string>Exportar CSV</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacerPanel">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      
+
+      <item>
+       <widget class="QTabWidget" name="tabsGraficos">
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="tabOriginal">
+         <attribute name="title">
+          <string>Original</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="layout_tabOriginal">
+          <item>
+           <widget class="GraphicsLayoutWidget" name="vistaOriginal" native="true"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tabPre">
+         <attribute name="title">
+          <string>Preprocesada</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="layout_tabPre">
+          <item>
+           <widget class="GraphicsLayoutWidget" name="vistaPre" native="true"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tabMapas">
+         <attribute name="title">
+          <string>Mapas</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="layout_tabMapas">
+          <item>
+           <widget class="GraphicsLayoutWidget" name="vistaMapa" native="true"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tabSegm">
+         <attribute name="title">
+          <string>Segmentación</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="layout_tabSegm">
+          <item>
+           <widget class="GraphicsLayoutWidget" name="vistaSegmentacion" native="true"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tabMetricas">
+         <attribute name="title">
+          <string>Métricas</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="layout_tabMetricas">
+          <item>
+           <widget class="QTableWidget" name="tablaMetricas">
+            <property name="editTriggers">
+             <set>QAbstractItemView::NoEditTriggers</set>
+            </property>
+            <attribute name="horizontalHeaderStretchLastSection">
+             <bool>true</bool>
+            </attribute>
+            <column>
+             <property name="text">
+              <string>Métrica</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Línea base (Otsu)</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>k-means</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>k-means + Chan-Vese</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tabDescriptores">
+         <attribute name="title">
+          <string>Descriptores</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="layout_tabDescriptores">
+          <item>
+           <widget class="QTableWidget" name="tablaDescriptores">
+            <property name="editTriggers">
+             <set>QAbstractItemView::NoEditTriggers</set>
+            </property>
+            <attribute name="horizontalHeaderStretchLastSection">
+             <bool>true</bool>
+            </attribute>
+            <column>
+             <property name="text">
+              <string>Descriptor</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Máscara real (GT)</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Máscara predicha</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+      
+
+     </layout>
+    </item>
+    
+
+    <item>
+     <widget class="QPlainTextEdit" name="txtLog">
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>100</height>
+       </size>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+      <property name="placeholderText">
+       <string>Registro de eventos...</string>
+      </property>
+     </widget>
+    </item>
+    
+
+    <item>
+     <widget class="QProgressBar" name="barraProgreso">
+      <property name="value">
+       <number>0</number>
+      </property>
+     </widget>
+    </item>
+    
+
+   </layout>
+  </widget>
+  
+
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1300</width>
+     <height>21</height>
+    </rect>
+   </property>
+   
+
+   <widget class="QMenu" name="menuArchivo">
+    <property name="title">
+     <string>Archivo</string>
+    </property>
+    <addaction name="actionAbrir"/>
+    <addaction name="actionExportar"/>
+    <addaction name="separator"/>
+    <addaction name="actionSalir"/>
+   </widget>
+   
+
+   <widget class="QMenu" name="menuAyuda">
+    <property name="title">
+     <string>Ayuda</string>
+    </property>
+    <addaction name="actionAcercaDe"/>
+   </widget>
+   
+
+   <addaction name="menuArchivo"/>
+   <addaction name="menuAyuda"/>
+  </widget>
+  
+
+  <widget class="QStatusBar" name="statusbar"/>
+  
+
+  <action name="actionAbrir">
+   <property name="text">
+    <string>Abrir...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="actionExportar">
+   <property name="text">
+    <string>Exportar CSV</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
+   </property>
+  </action>
+  <action name="actionSalir">
+   <property name="text">
+    <string>Salir</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="actionAcercaDe">
+   <property name="text">
+    <string>Acerca de</string>
+   </property>
+  </action>
+  
+
+ </widget>
+ 
+
+ <customwidgets>
+  <customwidget>
+   <class>GraphicsLayoutWidget</class>
+   <extends>QWidget</extends>
+   <header>pyqtgraph</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ 
+
+ <resources/>
+ <connections/>
+</ui>
